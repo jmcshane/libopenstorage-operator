@@ -366,6 +366,10 @@ type KvdbSpec struct {
 	// to authenticate with the kvdb. It could have the username/password
 	// for basic auth, certificate information or ACL token.
 	AuthSecret string `json:"authSecret,omitempty"`
+
+	// TopologySpreadConstraints enable the kvdb cluster to be distributed
+	// based on a topology spread constraint spec
+	TopologySpreadConstraints []v1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 }
 
 // NetworkSpec contains network information

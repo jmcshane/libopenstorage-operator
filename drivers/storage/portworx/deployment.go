@@ -242,6 +242,10 @@ func (p *portworx) GetKVDBPodSpec(
 		NodeName:           nodeName,
 	}
 
+	if len(cluster.Spec.Kvdb.TopologySpreadConstraints) > 0 {
+		podSpec.TopologySpreadConstraints = cluster.Spec.Kvdb.TopologySpreadConstraints
+	}
+
 	if t.cluster.Spec.Placement != nil {
 		if len(t.cluster.Spec.Placement.Tolerations) > 0 {
 			podSpec.Tolerations = make([]v1.Toleration, 0)

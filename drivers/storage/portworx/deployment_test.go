@@ -4700,6 +4700,82 @@ func TestPodSpecWithClusterIDOverwritten(t *testing.T) {
 	assert.ElementsMatch(t, expectedArgs, actual.Containers[0].Args)
 }
 
+func TestPodSpecWithKvdbTopologySpreadConstraints(t *testing.T) {
+	coreops.SetInstance(coreops.New(fakek8sclient.NewSimpleClientset()))
+	nodeName := "testNode"
+
+	cluster := &corev1.StorageCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "px-cluster",
+			Namespace: "kube-system",
+		},
+		Spec: corev1.StorageClusterSpec{
+			Image: "portworx/oci-monitor:2.0.3.4",
+			Placement: &corev1.PlacementSpec{
+				NodeAffinity: &v1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &v1.NodeSelector{
+						NodeSelectorTerms: []v1.NodeSelectorTerm{
+							{
+								MatchExpressions: []v1.NodeSelectorRequirement{
+									{
+										Key:      "px/enabled",
+										Operator: v1.NodeSelectorOpNotIn,
+										Values:   []string{"false"},
+									},
+									{
+										Key:      "kubernetes.io/os",
+										Operator: v1.NodeSelectorOpIn,
+										Values:   []string{"linux"},
+									},
+									{
+										Key:      "node-role.kubernetes.io/master",
+										Operator: v1.NodeSelectorOpDoesNotExist,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			Kvdb: &corev1.KvdbSpec{
+				Internal: true,
+				TopologySpreadConstraints: []v1.TopologySpreadConstraint{{
+					TopologyKey:       "kubernetes.io/zone",
+					MaxSkew:           1,
+					WhenUnsatisfiable: v1.DoNotSchedule,
+					LabelSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"kvdb": "true",
+						},
+					},
+				}},
+			},
+			SecretsProvider: stringPtr("k8s"),
+			CommonConfig: corev1.CommonConfig{
+				Storage: &corev1.StorageSpec{
+					UseAll:        boolPtr(true),
+					ForceUseDisks: boolPtr(true),
+				},
+				Env: []v1.EnvVar{
+					{
+						Name:  "TEST_KEY",
+						Value: "TEST_VALUE",
+					},
+				},
+				RuntimeOpts: map[string]string{
+					"op1": "10",
+				},
+			},
+		},
+	}
+
+	driver := portworx{}
+
+	actual, err := driver.GetKVDBPodSpec(cluster, nodeName)
+	require.NoError(t, err)
+	assert.Len(t, actual.TopologySpreadConstraints, 1)
+}
+
 func getExpectedPodSpecFromDaemonset(t *testing.T, fileName string) *v1.PodSpec {
 	json, err := os.ReadFile(fileName)
 	assert.NoError(t, err)
